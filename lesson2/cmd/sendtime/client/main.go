@@ -14,7 +14,11 @@ func main() {
 	}
 	defer conn.Close()
 	go func() {
-		io.Copy(os.Stdout, conn)
+		if _, err := io.Copy(os.Stdout, conn); err != nil {
+			log.Fatal(err)
+		}
 	}()
-	io.Copy(conn, os.Stdin)
+	if _, err := io.Copy(conn, os.Stdin); err != nil {
+		log.Fatal(err)
+	}
 }
