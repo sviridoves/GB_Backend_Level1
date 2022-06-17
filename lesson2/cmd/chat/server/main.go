@@ -52,10 +52,15 @@ func handleConn(conn net.Conn) {
 	ch := make(chan string)
 	go clientWriter(conn, ch)
 	who := conn.RemoteAddr().String()
+	input := bufio.NewScanner(conn)
+	if input.Scan() {
+		if input.Text()[0:7] == "myName:" {
+			who = input.Text()[7:]
+		}
+	}
 	ch <- "You are " + who
 	messages <- who + " has arrived"
 	entering <- ch
-	input := bufio.NewScanner(conn)
 	for input.Scan() {
 		messages <- who + ": " + input.Text()
 	}
