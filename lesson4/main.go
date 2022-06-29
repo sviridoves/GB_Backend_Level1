@@ -1,76 +1,20 @@
 package main
 
 import (
-	"encoding/json"
-	"encoding/xml"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"path/filepath"
 	"time"
 )
-
-type helloHandler struct {
-	subject string
-}
-
-type Handler struct {
-}
 
 type UploadHandler struct {
 	HostAddr  string
 	UploadDir string
 }
 
-func (h *helloHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Hello, %s!", h.subject)
-}
-
-func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		name := r.FormValue("name")
-		fmt.Fprintf(w, "Parsed query-param with key \"name\": %s", name)
-	case http.MethodPost:
-		//body, err := ioutil.ReadAll(r.Body)
-		//if err != nil {
-		//	http.Error(w, "Unable to read request body", http.StatusBadRequest)
-		//	return
-		//}
-		//defer r.Body.Close()
-
-		var employee Employee
-
-		contentType := r.Header.Get("Content-Type")
-		//err = json.Unmarshal(body, &employee)
-		//if err != nil {
-		//	http.Error(w, "Unable to unmarshal JSON", http.StatusBadRequest)
-		//	return
-		//}
-		switch contentType {
-		case "application/json":
-			err := json.NewDecoder(r.Body).Decode(&employee)
-			if err != nil {
-				http.Error(w, "Unable to unmarshal JSON", http.StatusBadRequest)
-				return
-			}
-		case "application/xml":
-			err := xml.NewDecoder(r.Body).Decode(&employee)
-			if err != nil {
-				http.Error(w, "Unable to unmarshal XML", http.StatusBadRequest)
-				return
-			}
-		default:
-			http.Error(w, "Unknown content type", http.StatusBadRequest)
-			return
-		}
-		//fmt.Fprintf(w, "Parsed request body: %s\n", string(body))
-		fmt.Fprintf(w, "Got a new employee!\nName: %s\nAge: %dy.o.\nSalary %0.2f\n",
-			employee.Name,
-			employee.Age,
-			employee.Salary,
-		)
-	}
+type GetFilesListHandler struct {
 }
 
 func (h *UploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -119,31 +63,50 @@ func (h *UploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fmt.Fprintf(w, fileLink)
-	//fmt.Fprintf(w, "File %s has been successfully uploaded", header.Filename)
+}
+
+func (h *GetFilesListHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	files, err := ioutil.ReadDir(".")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Fprint(w, `<html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"><title>Files</title></head><body>`)
+	extension := r.FormValue("ext")
+	if len(extension) > 0 {
+		fmt.Fprintf(w, `<h2>Отображаются файлы с расширением: %s</h2>`, extension)
+		fmt.Fprint(w, `<table width="40%" border="1" cellspacing="0"><tr><th>File name</th><th>File type</th><th>File size, bytes</th></tr>`)
+		for _, file := range files {
+			if !file.IsDir() {
+				fileType := filepath.Ext(file.Name())
+				//fileType = fileType[1:]
+				if len(fileType) > 0 {
+					if fileType[1:] == extension {
+						fmt.Fprintf(w, `<tr><td>%s</td><td>%s</td><td>%d</td></tr>`, file.Name(), fileType, file.Size())
+					}
+				}
+			}
+		}
+	} else {
+		fmt.Fprint(w, `<table width="40%" border="1" cellspacing="0"><tr><th>File name</th><th>File type</th><th>File size, bytes</th></tr>`)
+		for _, file := range files {
+			if !file.IsDir() {
+				fileType := filepath.Ext(file.Name())
+				fmt.Fprintf(w, `<tr><td>%s</td><td>%s</td><td>%d</td></tr>`, file.Name(), fileType, file.Size())
+			}
+		}
+	}
+	fmt.Fprint(w, `</table></body></html>`)
 }
 
 func main() {
-	//http.HandleFunc("/hello", func(w http.ResponseWriter, r *http.Request) {
-	//	fmt.Fprintf(w, "Hello World!")
-	//})
-	//http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-	//	fmt.Fprintf(w, "Ya got the wrong place, pal")
-	//})
 	uploadHandler := &UploadHandler{
 		UploadDir: "upload",
 		HostAddr:  "http://localhost:8080",
 	}
 	http.Handle("/upload", uploadHandler)
 
-	handler := &Handler{}
-	http.Handle("/", handler)
-
-	worldHandler := &helloHandler{"World"}
-	roomHandler := &helloHandler{"Mark"}
-
-	http.Handle("/world", worldHandler)
-	http.Handle("/room", roomHandler)
-
+	http.Handle("/files", &GetFilesListHandler{})
 	srv := &http.Server{
 		Addr:         ":80",
 		ReadTimeout:  10 * time.Second,
@@ -161,5 +124,4 @@ func main() {
 		WriteTimeout: 10 * time.Second,
 	}
 	fs.ListenAndServe()
-	//http.ListenAndServe(":80", nil)
 }

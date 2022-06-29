@@ -13,24 +13,23 @@ import (
 	"testing"
 )
 
-func TestGetHandler(t *testing.T) {
-	req, err := http.NewRequest("GET", "/?name=John", nil)
+func TestGetFilesListHandler(t *testing.T) {
+	req, err := http.NewRequest("GET", "/files?ext=mod", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	rr := httptest.NewRecorder()
-	handler := &Handler{}
+	getFilesListHandler := &GetFilesListHandler{}
 
-	handler.ServeHTTP(rr, req)
+	getFilesListHandler.ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusOK)
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
 	}
 
-	expected := `Parsed query-param with key "name": John`
-	if rr.Body.String() != expected {
+	expected := `<html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"><title>Files</title></head><body><h2>Отображаются файлы с расширением: mod</h2><table width="40%" border="1" cellspacing="0"><tr><th>File name</th><th>File type</th><th>File size, bytes</th></tr><tr><td>go.mod</td><td>.mod</td><td>24</td></tr></table></body></html>`
+	if !strings.Contains(rr.Body.String(), expected) {
 		t.Errorf("handler returned unexpected body: got %v want %v",
 			rr.Body.String(), expected)
 	}
